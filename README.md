@@ -1,5 +1,3 @@
-![Poster Presentation](poster.jpg)
-
 [![Youtube Video Demo Link](https://img.youtube.com/vi/unov8YPBNoM/0.jpg)](https://www.youtube.com/embed/unov8YPBNoM)
 
 <a href="https://www.youtube.com/embed/unov8YPBNoM" target="_blank">Video Demo Link</a>
