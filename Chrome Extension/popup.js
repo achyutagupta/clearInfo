@@ -1,74 +1,104 @@
-// popup.js
+function toggle() {
+    var circleLoaders = document.querySelectorAll('.circle-loader');
+    var checkmarks = document.querySelectorAll('.checkmark');
 
-// Function to take a screenshot of the current page.
-function takeScreenshot() {
-    chrome.tabs.captureVisibleTab({ format: "png" }, function (screenshotUrl) {
-        // Make a GET request to your API endpoint with screenshotUrl and bodyText as parameters
-        axios.post('http://localhost:8080/extension/userinterface', {
-            screenshotUrl: screenshotUrl,
-        }, {
-            headers: {
-                'Content-Type': 'application/json'
+    // Function to toggle load-complete class with delay
+    function toggleCircleLoaderWithDelay(index) {
+        setTimeout(function() {
+            var circleLoader = circleLoaders[index];
+            if (circleLoader.classList.contains('load-complete')) {
+                circleLoader.classList.remove('load-complete');
+            } else {
+                circleLoader.classList.add('load-complete');
             }
-        })
-        .then(function(response) {
-            // Handle the response as needed
-            document.getElementById('response1').innerText = `${response.data}`;
-        })
-        .catch(function(error) {
-            console.error('Request failed:', error);
-        });
-    });
-}
 
-function checkText(){
-    const output = document.getElementById('output').innerText;
-    const bodyText = document.getElementById('output').innerText;
-    if (output){
-        axios.post('http://localhost:8080/extension/urgency', {
-            bodyText: bodyText
-        }, {
-            headers: {
-                'Content-Type': 'application/json'
+            // Display the checkmark
+            checkmarks[index].style.display = 'block';
+
+            // If there are more loaders, proceed to the next one
+            if (index < circleLoaders.length - 1) {
+                toggleCircleLoaderWithDelay(index + 1);
             }
-        })
-        .then(function(response) {
-            // Handle the response as needed
-            console.log(`Urgency Response:${response.data}`)
-            document.getElementById('response2').innerText = `${response.data}`
-        })
-        .catch(function(error) {
-            console.error('Request failed:', error);
-        });
+        }, 1000 * index); // Delay increases with each index
     }
+
+    // Start toggling with delay for each circle loader
+    toggleCircleLoaderWithDelay(0);
 }
 
-// Attach the event listener to the button.
+
+// Attach the event listener on Content Loaded.
 document.addEventListener("DOMContentLoaded", function () {
-    const screenshotBtn = document.getElementById("captureBtn");
-
-    if (screenshotBtn) {
-        screenshotBtn.addEventListener("click", takeScreenshot);
-    } else {
-        console.error("SS Button not found.");
-    }
-
-    const textBtn = document.getElementById("textBtn");
-    if(textBtn){
-        textBtn.addEventListener("click" , checkText);
-    } else {
-        console.error("Text Button not found.");
-    }
+    const boxes = document.querySelectorAll('.box');
+    boxes.forEach((box)=>{
+        box.addEventListener('mouseenter' , function(){
+            box.querySelector('.response_box').style.display = 'block';
+        })
+        box.addEventListener('mouseleave' , function(){
+            box.querySelector('.response_box').style.display = 'none';
+        })
+    })
+    setTimeout( function(){
+        toggle();
+    }, 15000)
 });
+
+
+function sendToBackend(body, ss, URL) {
+    if (body && ss && URL) {
+        const axiosConfig = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        const bodyRequest = axios.post('http://localhost:8080/extension/body', {
+            bodyText: body,
+        }, axiosConfig);
+
+        const ssRequest = axios.post('http://localhost:8080/extension/ss', {
+            screenshot: ss
+        }, axiosConfig);
+
+        const urlssRequest = axios.post('http://localhost:8080/extension/url',{
+            screenshot:ss,
+            URL:URL
+        })
+
+        Promise.all([bodyRequest, ssRequest , urlssRequest])
+            .then(function (responses) {
+                setResponses(responses);
+                console.log('API Calls Successful');
+                console.log('Response from body API:', responses[0].data);
+                console.log('Response from ss API:', responses[1].data);
+                console.log('Response from urlss API:', responses[2].data);
+            })
+            .catch(function (errors) {
+                console.error('API Calls Failed', errors);
+            });
+    }
+}
+
+function setResponses(responses){
+    document.getElementById('response1').innerHTML = responses[1].data;
+    document.getElementById('response4').innerHTML = responses[0].data;
+}
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-    // Check if text is present
-    console.log('message lines', message.lines);
-    if (message.lines) {
-        // Update the content of the output div in popup.html
-        document.getElementById('output').innerText = message.lines;
+    
+    const body_text = message.lines;
+    const screenshotUrl = message.page;
+    const pageURL = message.pageURL;
+
+    console.log('message lines',body_text);
+    console.log('message page', screenshotUrl);
+    console.log('message url', pageURL);
+
+    if (message.lines && message.page && message.pageURL) {
+        sendToBackend(body_text , screenshotUrl , pageURL)
     } else {
-        // If no text is received, display a message indicating no text extracted
-        document.getElementById('output').innerText = 'No text extracted.';
+        console.error('No Text Extracted.')
     }
 });
+
+
